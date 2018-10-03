@@ -3,8 +3,8 @@ from bpy.props import *
 from . operators import selectVertices
 
 selectionMaskTypes = [
-    ("VERTEX_GROUP", "Vertex Group", "Use a custom vertex group", "NONE", 0),
-    ("IN_RANGE", "In Range", "Vertices are in the given range", "NONE", 1),
+    ("IN_RANGE", "In Range", "Vertices are in the given range", "NONE", 0),
+    ("VERTEX_GROUP", "Vertex Group", "Use a custom vertex group", "NONE", 1),
     ("DIRECTION", "Direction", "The angles that vertices normals makes with the given vector are in a the given range", "NONE", 2)
 ]
 rangeTypes = [
@@ -19,14 +19,16 @@ def autoUpdate(self, context):
 class SelectionMaskOptions(bpy.types.PropertyGroup):
     name = StringProperty(update = autoUpdate)
     expanded = BoolProperty(default = True)
-    type = EnumProperty(name = "Type", items = selectionMaskTypes, default = "VERTEX_GROUP",
+    type = EnumProperty(name = "Type", items = selectionMaskTypes, default = "IN_RANGE",
                         update = autoUpdate)
+    invert = BoolProperty(name = "Invert", default = False)
 
     # Vertex Group.
     vertexGroupName = StringProperty(update = autoUpdate)
 
     # In Range.
-    rangetype = EnumProperty(name = "Type", items = rangeTypes, update = autoUpdate)
+    rangetype = EnumProperty(name = "Type", items = rangeTypes, default = "CENTER_SCALE",
+                             update = autoUpdate)
     minVector = FloatVectorProperty(name = "Min", subtype = "XYZ", update = autoUpdate)
     maxVector = FloatVectorProperty(name = "Max", subtype = "XYZ", update = autoUpdate)
     centerVector = FloatVectorProperty(name = "Center", subtype = "XYZ", update = autoUpdate)
@@ -58,11 +60,12 @@ class ObjectSelectPanel(bpy.types.Panel):
             if mask.expanded:
                 box.prop(mask, "type", text="")
                 if mask.type == "VERTEX_GROUP":
-                    drawVertexGroup(mask, object, box)
+                    drawMask(mask, object, box)
                 elif mask.type == "IN_RANGE":
                     drawInRange(mask, object, box)
                 elif mask.type == "DIRECTION":
                     drawDirection(mask, object, box)
+                box.prop(mask, "invert", toggle = True)
 
         column.operator("mesh.add_selection_mask", text="", icon='PLUS')
 
@@ -103,17 +106,18 @@ def drawDirection(mask, object, box):
     row.prop(mask, "minFloat" if isMinMax else "centerFloat")
     row.prop(mask, "maxFloat" if isMinMax else "scaleFloat")
 
+classes = [ObjectSelectPanel, SelectionMaskOptions]
 def register():
-    bpy.utils.register_class(ObjectSelectPanel)
-    bpy.utils.register_class(SelectionMaskOptions)
-    bpy.types.Object.auto_update = BoolProperty()
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    bpy.types.Object.auto_update = BoolProperty(default = True)
     bpy.types.Object.selection_masks = CollectionProperty(type=SelectionMaskOptions)
     bpy.types.Object.selection_expression = StringProperty(update = autoUpdate,
                                                            options ={"TEXTEDIT_UPDATE"})
 
 def unregister():
-    bpy.utils.unregister_class(ObjectSelectPanel)
-    bpy.utils.unregister_class(SelectionMaskOptions)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
     del bpy.types.Object.auto_update
     del bpy.types.Object.selection_masks
     del bpy.types.Object.selection_expression

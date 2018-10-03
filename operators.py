@@ -1,5 +1,6 @@
 import bpy
 import bmesh
+import numpy
 from . parser import evaluate
 from . conditions import getVariables
 from bpy.props import IntProperty, StringProperty
@@ -46,26 +47,23 @@ class CollapsSelectionMaskOperator(bpy.types.Operator):
         mask.expanded = False if mask.expanded else True
         return {'FINISHED'}
 
-class VertexGroupFromSelection(bpy.types.Operator):
-    bl_idname = "mesh.vertex_group_from_selection"
-    bl_label = "Vertex Group From Selection"
+class UpdateSelectionMask(bpy.types.Operator):
+    bl_idname = "mesh.update_selection_mask"
+    bl_label = "Update Selection Mask"
     name = StringProperty()
 
     def execute(self, context):
-        object = context.active_object
-        object.vertex_groups.new(self.name)
-        bpy.ops.object.vertex_group_assign()
-        object.selection_masks[self.name].vertexGroupName = object.vertex_groups[-1].name
+        mesh = context.active_object.data
+        bm = bmesh.from_edit_mesh(mesh)
+        mesh[self.name] = numpy.fromiter(vert.select for vert in bm.verts, bool)
         return {'FINISHED'}
 
+classes = [AddSelectionMaskOperator, VertexGroupFromSelection,
+           RemoveSelectionMaskOperator, CollapsSelectionMaskOperator]
 def register():
-    bpy.utils.register_class(AddSelectionMaskOperator)
-    bpy.utils.register_class(VertexGroupFromSelection)
-    bpy.utils.register_class(RemoveSelectionMaskOperator)
-    bpy.utils.register_class(CollapsSelectionMaskOperator)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(AddSelectionMaskOperator)
-    bpy.utils.unregister_class(VertexGroupFromSelection)
-    bpy.utils.unregister_class(RemoveSelectionMaskOperator)
-    bpy.utils.unregister_class(CollapsSelectionMaskOperator)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
