@@ -2,29 +2,30 @@ import numpy
 
 def getVariables(object, mesh):
     variables = {}
-    for mask in object.selection_masks:
-        if mask.type == "VERTEX_GROUP":
-            variables[mask.name] = inVertexGroup(object, mask.vertexGroupName,
-                                                         mask.invert)
-        if mask.type == "IN_RANGE":
-            if mask.rangetype == "MIN_MAX":
-                variables[mask.name] = verticesInRange(mesh, mask.minVector,
-                                                             mask.maxVector,
-                                                             mask.invert)
+    for condition in object.selection_conditions:
+        if condition.type == "MASK":
+            variables[condition.name] = mask(object, mesh, condition.identifier,
+                                                           condition.invert,
+                                                           condition)
+        if condition.type == "IN_RANGE":
+            if condition.rangetype == "MIN_MAX":
+                variables[condition.name] = verticesInRange(mesh, condition.minVector,
+                                                                  condition.maxVector,
+                                                                  condition.invert)
             else:
-                variables[mask.name] = verticesInRangeCenter(mesh, mask.centerVector,
-                                                                   mask.scaleVector,
-                                                                   mask.invert)
+                variables[condition.name] = verticesInRangeCenter(mesh, condition.centerVector,
+                                                                        condition.scaleVector,
+                                                                        condition.invert)
     return variables
 
-def inVertexGroup(object, name, invert):
-    vertexGroup = object.vertex_groups[name]
-    verticesCount = len(object.data.vertices)
-    weights = numpy.full(verticesCount, False)
-    for i in range(verticesCount):
-        try: weights[i] = (True, vertexGroup.weight(i))[0]
-        except: pass
-    return ~weights if invert else weights
+def mask(object, mesh, identifier, invert, condition):
+    if identifier in object.data and len(object.data[identifier]) == len(mesh.verts):
+        mask = numpy.array(object.data[identifier], dtype=bool)
+        condition.outDated = False
+    else:
+        mask = numpy.full(len(mesh.verts), False)
+        condition.outDated = True
+    return ~mask if invert else mask
 
 def verticesInRange(mesh, min, max, invert):
     result = numpy.full(len(mesh.verts), False)

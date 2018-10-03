@@ -2,9 +2,9 @@ import bpy
 from bpy.props import *
 from . operators import selectVertices
 
-selectionMaskTypes = [
+selectionConditionTypes = [
     ("IN_RANGE", "In Range", "Vertices are in the given range", "NONE", 0),
-    ("VERTEX_GROUP", "Vertex Group", "Use a custom vertex group", "NONE", 1),
+    ("MASK", "Mask", "Use a custom mask", "NONE", 1),
     ("DIRECTION", "Direction", "The angles that vertices normals makes with the given vector are in a the given range", "NONE", 2)
 ]
 rangeTypes = [
@@ -16,15 +16,16 @@ def autoUpdate(self, context):
     if context.active_object.auto_update:
         selectVertices(context)
 
-class SelectionMaskOptions(bpy.types.PropertyGroup):
+class SelectionConditionOptions(bpy.types.PropertyGroup):
     name = StringProperty(update = autoUpdate)
     expanded = BoolProperty(default = True)
-    type = EnumProperty(name = "Type", items = selectionMaskTypes, default = "IN_RANGE",
+    type = EnumProperty(name = "Type", items = selectionConditionTypes, default = "IN_RANGE",
                         update = autoUpdate)
-    invert = BoolProperty(name = "Invert", default = False)
+    invert = BoolProperty(name = "Invert", default = False, update = autoUpdate)
 
-    # Vertex Group.
-    vertexGroupName = StringProperty(update = autoUpdate)
+    # Mask.
+    identifier = StringProperty()
+    outDated = BoolProperty(default = False)
 
     # In Range.
     rangetype = EnumProperty(name = "Type", items = rangeTypes, default = "CENTER_SCALE",
@@ -42,8 +43,8 @@ class SelectionMaskOptions(bpy.types.PropertyGroup):
     scaleFloat = FloatProperty(name = "Scale", update = autoUpdate)
 
 class ObjectSelectPanel(bpy.types.Panel):
-    bl_idname = "MESH_PT_selection_masks"
-    bl_label = "Selection Masks"
+    bl_idname = "MESH_PT_selection_conditions"
+    bl_label = "Selection Conditions"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_context = "mesh_edit"
@@ -53,21 +54,21 @@ class ObjectSelectPanel(bpy.types.Panel):
         object = context.active_object
 
         column = layout.column()
-        for index, mask in enumerate(object.selection_masks):
+        for index, condition in enumerate(object.selection_conditions):
             box = column.box()
-            drawHeader(mask, box, index)
+            drawHeader(condition, box, index)
 
-            if mask.expanded:
-                box.prop(mask, "type", text="")
-                if mask.type == "VERTEX_GROUP":
-                    drawMask(mask, object, box)
-                elif mask.type == "IN_RANGE":
-                    drawInRange(mask, object, box)
-                elif mask.type == "DIRECTION":
-                    drawDirection(mask, object, box)
-                box.prop(mask, "invert", toggle = True)
+            if condition.expanded:
+                box.prop(condition, "type", text="")
+                if condition.type == "MASK":
+                    drawMask(condition, box, index)
+                elif condition.type == "IN_RANGE":
+                    drawInRange(condition, box)
+                elif condition.type == "DIRECTION":
+                    drawDirection(condition, box)
+                box.prop(condition, "invert", toggle = True)
 
-        column.operator("mesh.add_selection_mask", text="", icon='PLUS')
+        column.operator("mesh.add_selection_condition", text="", icon='PLUS')
 
         layout.separator()
         column = layout.column()
@@ -77,41 +78,41 @@ class ObjectSelectPanel(bpy.types.Panel):
         row.operator("mesh.select_by_expression", text="Select")
         row.prop(object, "auto_update", text="", icon= "AUTO")
 
-def drawHeader(mask, box, index):
+def drawHeader(condition, box, index):
     row = box.row()
-    row.operator("mesh.collapse_selection_mask", text="",
-                icon='TRIA_DOWN' if mask.expanded else 'TRIA_RIGHT', emboss = False).index = index
-    row.prop(mask, "name", text = "")
-    row.operator("mesh.remove_selection_mask", text="", icon='X', emboss = False).index = index
+    row.operator("mesh.collapse_selection_condition", text="",
+        icon='TRIA_DOWN' if condition.expanded else 'TRIA_RIGHT', emboss = False).index = index
+    row.prop(condition, "name", text = "")
+    row.operator("mesh.remove_selection_condition", text="", icon='X', emboss = False).index = index
 
-def drawVertexGroup(mask, object, box):
-    row = box.row(True)
-    row.prop_search(mask, "vertexGroupName", object, "vertex_groups", text = "")
-    row.operator("mesh.vertex_group_from_selection", text="", icon="UV_VERTEXSEL").name = mask.name
+def drawMask(condition, box, index):
+    box.operator("mesh.update_selection_mask").index = index
+    if condition.outDated:
+        box.label("Mask is outdated!")
 
-def drawInRange(mask, object, box):
-    isMinMax = mask.rangetype == "MIN_MAX"
-    box.prop(mask, "rangetype", text="")
+def drawInRange(condition, box):
+    isMinMax = condition.rangetype == "MIN_MAX"
+    box.prop(condition, "rangetype", text="")
     row = box.row()
     column = row.column()
-    column.prop(mask, "minVector" if isMinMax else "centerVector")
+    column.prop(condition, "minVector" if isMinMax else "centerVector")
     column = row.column()
-    column.prop(mask, "maxVector" if isMinMax else "scaleVector")
+    column.prop(condition, "maxVector" if isMinMax else "scaleVector")
 
-def drawDirection(mask, object, box):
-    isMinMax = mask.rangetype == "MIN_MAX"
-    box.prop(mask, "direction", text="")
-    box.prop(mask, "rangetype", text="")
+def drawDirection(condition, box):
+    isMinMax = condition.rangetype == "MIN_MAX"
+    box.prop(condition, "direction", text="")
+    box.prop(condition, "rangetype", text="")
     row = box.row(True)
-    row.prop(mask, "minFloat" if isMinMax else "centerFloat")
-    row.prop(mask, "maxFloat" if isMinMax else "scaleFloat")
+    row.prop(condition, "minFloat" if isMinMax else "centerFloat")
+    row.prop(condition, "maxFloat" if isMinMax else "scaleFloat")
 
-classes = [ObjectSelectPanel, SelectionMaskOptions]
+classes = [ObjectSelectPanel, SelectionConditionOptions]
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Object.auto_update = BoolProperty(default = True)
-    bpy.types.Object.selection_masks = CollectionProperty(type=SelectionMaskOptions)
+    bpy.types.Object.selection_conditions = CollectionProperty(type=SelectionConditionOptions)
     bpy.types.Object.selection_expression = StringProperty(update = autoUpdate,
                                                            options ={"TEXTEDIT_UPDATE"})
 
@@ -119,5 +120,5 @@ def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
     del bpy.types.Object.auto_update
-    del bpy.types.Object.selection_masks
+    del bpy.types.Object.selection_conditions
     del bpy.types.Object.selection_expression
