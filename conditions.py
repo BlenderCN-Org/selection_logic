@@ -8,7 +8,7 @@ def getVariables(object, mesh):
                                                            condition.invert,
                                                            condition)
         if condition.type == "IN_RANGE":
-            if condition.rangetype == "MIN_MAX":
+            if condition.rangeType == "MIN_MAX":
                 variables[condition.name] = verticesInRange(mesh, condition.minVector,
                                                                   condition.maxVector,
                                                                   condition.invert)
@@ -16,7 +16,27 @@ def getVariables(object, mesh):
                 variables[condition.name] = verticesInRangeCenter(mesh, condition.centerVector,
                                                                         condition.scaleVector,
                                                                         condition.invert)
+        if condition.type == "DIRECTION":
+            if condition.angleType == "MIN_MAX":
+                variables[condition.name] = pointTo(mesh, condition.direction,
+                                                          condition.minAngle,
+                                                          condition.maxAngle,
+                                                          condition.invert)
+            else:
+                variables[condition.name] = pointToRange(mesh, condition.direction,
+                                                                condition.startAngle,
+                                                                condition.angleRange,
+                                                                condition.invert)
     return variables
+
+def pointTo(mesh, direction, min, max, invert):
+    normals = numpy.array([vert.normal for vert in mesh.verts], float)
+    angles = numpy.arccos(numpy.dot(normals, numpy.array(direction)))
+    result = (angles >= min) * (angles <= max)
+    return ~result if invert else result
+
+def pointToRange(mesh, direction, startAngle, angleRange, invert):
+    return pointTo(mesh, direction, startAngle, startAngle + angleRange, invert)
 
 def mask(object, mesh, identifier, invert, condition):
     if identifier in object.data and len(object.data[identifier]) == len(mesh.verts):

@@ -1,15 +1,20 @@
 import bpy
+from math import pi
 from bpy.props import *
 from . operators import selectVertices
 
 selectionConditionTypes = [
-    ("IN_RANGE", "In Range", "Vertices are in the given range", "NONE", 0),
-    ("MASK", "Mask", "Use a custom mask", "NONE", 1),
+    ("MASK", "Mask", "Use a custom mask", "NONE", 0),
+    ("IN_RANGE", "In Range", "Vertices are in the given range", "NONE", 1),
     ("DIRECTION", "Direction", "The angles that vertices normals makes with the given vector are in a the given range", "NONE", 2)
 ]
 rangeTypes = [
     ("MIN_MAX", "Min / Max", "Define range using maximum and minimum.", "NONE", 0),
-    ("CENTER_SCALE", "Center/Scale", "Define range using center and scale.", "NONE", 1)
+    ("CENTER_SCALE", "Center / Scale", "Define range using center and scale.", "NONE", 1)
+]
+angleTypes = [
+    ("MIN_MAX", "Min / Max", "Define range using maximum and minimum angles", "NONE", 0),
+    ("START_RANGE", "Start / Range", "Define range using start and range angles", "NONE", 1)
 ]
 
 def autoUpdate(self, context):
@@ -19,7 +24,7 @@ def autoUpdate(self, context):
 class SelectionConditionOptions(bpy.types.PropertyGroup):
     name = StringProperty(update = autoUpdate)
     expanded = BoolProperty(default = True)
-    type = EnumProperty(name = "Type", items = selectionConditionTypes, default = "IN_RANGE",
+    type = EnumProperty(name = "Type", items = selectionConditionTypes, default = "MASK",
                         update = autoUpdate)
     invert = BoolProperty(name = "Invert", default = False, update = autoUpdate)
 
@@ -28,7 +33,7 @@ class SelectionConditionOptions(bpy.types.PropertyGroup):
     outDated = BoolProperty(default = False)
 
     # In Range.
-    rangetype = EnumProperty(name = "Type", items = rangeTypes, default = "CENTER_SCALE",
+    rangeType = EnumProperty(name = "Type", items = rangeTypes, default = "CENTER_SCALE",
                              update = autoUpdate)
     minVector = FloatVectorProperty(name = "Min", subtype = "XYZ", update = autoUpdate)
     maxVector = FloatVectorProperty(name = "Max", subtype = "XYZ", update = autoUpdate)
@@ -36,11 +41,17 @@ class SelectionConditionOptions(bpy.types.PropertyGroup):
     scaleVector = FloatVectorProperty(name = "Scale", subtype = "XYZ", update = autoUpdate)
 
     # Direction.
+    angleType = EnumProperty(name = "Type", items = angleTypes, default = "MIN_MAX",
+                             update = autoUpdate)
     direction = FloatVectorProperty(subtype = "DIRECTION", default=(0,0,1), update = autoUpdate)
-    minFloat = FloatProperty(name = "Min", update = autoUpdate)
-    maxFloat = FloatProperty(name = "Max", update = autoUpdate)
-    centerFloat = FloatProperty(name = "Center", update = autoUpdate)
-    scaleFloat = FloatProperty(name = "Scale", update = autoUpdate)
+    minAngle = FloatProperty(name = "Min", unit = "ROTATION", soft_min = 0, soft_max = pi,
+                             update = autoUpdate)
+    maxAngle = FloatProperty(name = "Max", unit = "ROTATION", soft_min = 0, soft_max = pi,
+                             update = autoUpdate)
+    startAngle = FloatProperty(name = "Start", unit = "ROTATION", soft_min = 0, soft_max = pi,
+                                update = autoUpdate)
+    angleRange = FloatProperty(name = "Range", unit = "ROTATION", soft_min = 0, soft_max = pi,
+                               update = autoUpdate)
 
 class ObjectSelectPanel(bpy.types.Panel):
     bl_idname = "MESH_PT_selection_conditions"
@@ -91,8 +102,8 @@ def drawMask(condition, box, index):
         box.label("Mask is outdated!")
 
 def drawInRange(condition, box):
-    isMinMax = condition.rangetype == "MIN_MAX"
-    box.prop(condition, "rangetype", text="")
+    isMinMax = condition.rangeType == "MIN_MAX"
+    box.prop(condition, "rangeType", text="")
     row = box.row()
     column = row.column()
     column.prop(condition, "minVector" if isMinMax else "centerVector")
@@ -100,12 +111,12 @@ def drawInRange(condition, box):
     column.prop(condition, "maxVector" if isMinMax else "scaleVector")
 
 def drawDirection(condition, box):
-    isMinMax = condition.rangetype == "MIN_MAX"
+    isMinMax = condition.angleType == "MIN_MAX"
     box.prop(condition, "direction", text="")
-    box.prop(condition, "rangetype", text="")
+    box.prop(condition, "angleType", text="")
     row = box.row(True)
-    row.prop(condition, "minFloat" if isMinMax else "centerFloat")
-    row.prop(condition, "maxFloat" if isMinMax else "scaleFloat")
+    row.prop(condition, "minAngle" if isMinMax else "startAngle")
+    row.prop(condition, "maxAngle" if isMinMax else "angleRange")
 
 classes = [ObjectSelectPanel, SelectionConditionOptions]
 def register():
