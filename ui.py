@@ -88,6 +88,8 @@ class ObjectSelectPanel(bpy.types.Panel):
         row = column.row(True)
         row.operator("mesh.select_by_expression", text="Select")
         row.prop(object, "auto_update", text="", icon= "AUTO")
+        if object.invalid_expression:
+            layout.label("Invalid Expression!")
 
 def drawHeader(condition, box, index):
     row = box.row()
@@ -123,6 +125,7 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Object.auto_update = BoolProperty(default = True)
+    bpy.types.Object.invalid_expression = BoolProperty(default = False)
     bpy.types.Object.selection_conditions = CollectionProperty(type=SelectionConditionOptions)
     bpy.types.Object.selection_expression = StringProperty(update = autoUpdate,
                                                            options ={"TEXTEDIT_UPDATE"})

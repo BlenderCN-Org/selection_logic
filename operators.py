@@ -9,7 +9,12 @@ def selectVertices(context):
     object = context.active_object
     mesh = bmesh.from_edit_mesh(object.data)
     variables = getVariables(object, mesh)
-    result = evaluate(object.selection_expression, variables)
+    try:
+        result = evaluate(object.selection_expression, variables)
+        object.invalid_expression = False
+    except:
+        object.invalid_expression = True
+        return
     for face in mesh.faces:
         if all(result[vert.index] for vert in face.verts):
             face.select = True
